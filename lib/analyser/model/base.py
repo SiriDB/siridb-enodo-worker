@@ -29,9 +29,9 @@ class Model:
     def do_forecast(self):
         pass
 
-    def save(self):
+    def pickle(self):
         pass
 
     @classmethod
-    def load(cls, serie_name):
+    def unload(cls, serie_name):
         pass

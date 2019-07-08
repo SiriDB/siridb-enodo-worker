@@ -11,13 +11,14 @@ from lib.socket.package import *
 
 class Client:
 
-    def __init__(self, loop, hostname, port, heartbeat_interval=5):
+    def __init__(self, loop, hostname, port, client_type, heartbeat_interval=5):
         self.loop = loop
         self._hostname = hostname
         self._port = port
         self._heartbeat_interval = heartbeat_interval
 
-        self._id = uuid.uuid4()
+        self._client_type = client_type
+        self._id = uuid.uuid4().hex
         self._messages = {}
         self._current_message_id = 1
         self._current_message_id_locked = False
@@ -28,16 +29,28 @@ class Client:
         self._sock = None
 
     async def setup(self, cbs=None):
-        self._sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-
-        self._sock.connect((self._hostname, self._port))
-        fcntl.fcntl(self._sock, fcntl.F_SETFL, os.O_NONBLOCK)
+        await self._connect()
 
         self._cbs = cbs
         if cbs is None:
             self._cbs = {}
 
         await self._handshake()
+
+    async def _connect(self):
+
+        connected = False
+        while not connected:
+            print("Trying to connect")
+            try:
+                self._sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                self._sock.connect((self._hostname, self._port))
+            except Exception:
+                await asyncio.sleep(5)
+            else:
+                connected = True
+                print("Connected")
+                fcntl.fcntl(self._sock, fcntl.F_SETFL, os.O_NONBLOCK)
 
     async def run(self):
         while 1:
@@ -109,7 +122,7 @@ class Client:
         await self._send_message(len(body), message_type, body)
 
     async def _handshake(self):
-        data = json.dumps({'client_id': str(self._id), 'client_type': 'listener'}).encode('utf-8')
+        data = json.dumps({'client_id': str(self._id), 'client_type': self._client_type}).encode('utf-8')
         await self._send_message(len(data), HANDSHAKE, data)
         self._last_heartbeat_send = datetime.datetime.now()
 

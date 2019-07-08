@@ -1,7 +1,6 @@
 import asyncio
 import configparser
 import json
-import os
 from queue import Queue
 from threading import Thread
 
@@ -12,37 +11,52 @@ from lib.socket.package import *
 
 class Worker:
 
-    def __init__(self, loop):
+    def __init__(self, loop, config_path):
         self._loop = loop
         self._config = configparser.ConfigParser()
-        self._config.read(os.path.join(os.path.dirname(__file__), 'listener.conf'))
+        self._config.read(config_path)
         self._series_to_watch = ()
         self._serie_counter_updates = {}
         self._client = Client(loop, self._config['enodo']['hub_hostname'], int(self._config['enodo']['hub_port']),
-                              heartbeat_interval=int(self._config['enodo']['heartbeat_interval']))
+                              'worker', heartbeat_interval=int(self._config['enodo']['heartbeat_interval']))
         self._client_run_task = None
         self._updater_task = None
         self._result_queue = Queue()
         self._busy = False
 
-    async def _send_update(self):
-        update_encoded = json.dumps(self._serie_counter_updates).encode('utf-8')
-        self._serie_counter_updates = {}
-        await self._client.send_message(update_encoded, LISTENER_ADD_SERIE_COUNT)
+    async def _update_busy(self, busy):
+        self._busy = busy
+        await self._client.send_message(str(busy).encode('utf-8'), WORKER_UPDATE_BUSY)
 
-    async def _start_analyse(self):
+    async def _check_for_update(self):
+        while not self._result_queue.empty():
+            pkl = self._result_queue.get()
+            await self._send_update(pkl)
+            await self._update_busy(False)
+
+    async def _send_update(self, pkl):
+        await self._client.send_message(pkl, WORKER_RESULT)
+
+    async def _start_analyse(self, serie_name):
+        await self._update_busy(True)
         worker_loop = asyncio.new_event_loop()
-        worker = Thread(target=start_analyser_worker, args=(worker_loop,))
+        worker = Thread(target=start_analyser_worker, args=(worker_loop, self._result_queue, serie_name, self._config,))
         # Start the thread
         worker.start()
 
-    async def start_listener(self):
+    async def _receive_forecast_request(self, writer, packet_type, packet_id, data, client_id):
+        data = json.loads(data.decode("utf-8"))
+        print('GOT FORECAST REQUEST')
+        print(data)
+        pass
+
+    async def start_worker(self):
         await self._client.setup(cbs={
-            UPDATE_SERIES: self._handle_update_series
+            # UPDATE_SERIES: self._handle_update_series
+            FORECAST_SERIE: self._receive_forecast_request
         })
         self._client_run_task = self._loop.create_task(self._client.run())
-
-        # self._updater_task = self._loop.create_task(self._updater())
+        self._updater_task = self._loop.create_task(self._check_for_update())
 
     def close(self):
         self._client_run_task.cancel()

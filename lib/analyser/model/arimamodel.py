@@ -1,4 +1,3 @@
-import os
 import pickle
 
 from pmdarima import auto_arima
@@ -7,7 +6,6 @@ from pmdarima.arima.utils import ndiffs, nsdiffs
 from statsmodels.tsa.stattools import adfuller
 
 from lib.analyser.model.base import Model
-from lib.config.config import Config
 from lib.exceptions.analyserexception import AnalyserException, AnalysisInvalidArgumentException, \
     AnalysisInvalidDatasetSize
 
@@ -113,19 +111,14 @@ class ARIMAModel(Model):
             else:
                 return self.forecast_values
 
-    def save(self):
-        if not os.path.exists(Config.analysis_save_path):
-            raise Exception()
-        pickle.dump(self,
-                    open(os.path.join(Config.analysis_save_path, self._serie_name + ".pkl"), "wb"))
+    def pickle(self):
+        return pickle.dumps(self)
 
     @classmethod
-    def load(cls, serie_name):
+    def unpickle(cls, data):
         """
         Load Analysis class from existing model.
         :param serie_name:
         :return:
         """
-        if not os.path.exists(Config.analysis_save_path):
-            raise Exception()
-        return pickle.load(open(os.path.join(Config.analysis_save_path, serie_name + ".pkl"), "rb"))
+        return pickle.loads(data)

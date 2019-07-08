@@ -1,2 +1,5 @@
 siridb-connector
 fbprophet
+pmdarima
+pandas
+statsmodels
