@@ -1,12 +1,10 @@
-import os
-import pickle
+import datetime
+import time
+
+import pandas as pd
 
 from fbprophet import Prophet
-
 from lib.analyser.model.base import Model
-from lib.config.config import Config
-from lib.exceptions.analyserexception import AnalyserException, AnalysisInvalidArgumentException, \
-    AnalysisInvalidDatasetSize
 
 
 class ProphetModel(Model):
@@ -27,6 +25,9 @@ class ProphetModel(Model):
         self.forecast_values = None
         self.is_stationary = False
         self._dataset.columns = ['ds', 'y']
+        self._dataset['ds'] = pd.to_datetime(self._dataset['ds'], unit='s')
+        # self._dataset['ds'] = pd.to_datetime(self._dataset['ds'], format="%Y-%m-%d %H:%M:%S")
+        print(self._dataset)
 
     def create_model(self):
         self._model = Prophet()
@@ -38,36 +39,26 @@ class ProphetModel(Model):
         :param update:
         :return:
         """
+        print("h1")
         if update or self.forecast_values is None:
-            future = self._model.make_future_dataframe(periods=5)
+            future = self._model.make_future_dataframe(periods=20)
             future.tail()
 
+            print("h2")
             forecast = self._model.predict(future)
             # forecast[['ds', 'yhat', 'yhat_lower', 'yhat_upper']].tail()
             forecast.set_index('ds')
 
+            print("h3")
+            print(forecast)
+            forecast['ds'] = pd.to_datetime(forecast['ds'], format="%Y-%m-%d %H:%M:%S")
             indexed_forecast_values = []
-            for i in range(len(forecast)):
-                indexed_forecast_values.append([forecast[i]['ds'], forecast[i]['yhat']])
+            for index, row in forecast.iterrows():
+                indexed_forecast_values.append(
+                    [int(time.mktime(datetime.datetime.strptime(str(row['ds']), "%Y-%m-%d %H:%M:%S").timetuple())),
+                     row['yhat']])
 
-            self.forecast_values = indexed_forecast_values
+                self.forecast_values = indexed_forecast_values
             return self.forecast_values
         else:
             return self.forecast_values
-
-    def save(self):
-        if not os.path.exists(Config.analysis_save_path):
-            raise Exception()
-        pickle.dump(self,
-                    open(os.path.join(Config.analysis_save_path, self._serie_name + ".pkl"), "wb"))
-
-    @classmethod
-    def load(cls, serie_name):
-        """
-        Load Analysis class from existing model.
-        :param serie_name:
-        :return:
-        """
-        if not os.path.exists(Config.analysis_save_path):
-            raise Exception()
-        return pickle.load(open(os.path.join(Config.analysis_save_path, serie_name + ".pkl"), "rb"))

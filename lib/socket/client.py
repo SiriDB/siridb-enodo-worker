@@ -7,6 +7,7 @@ import os
 import uuid
 
 from lib.socket.package import *
+from version import VERSION
 
 
 class Client:
@@ -116,13 +117,15 @@ class Client:
         self._current_message_id += 1
         self._current_message_id_locked = False
 
+        print("SENDING TYPE: ", message_type)
         self._sock.send(header + data)
 
     async def send_message(self, body, message_type):
         await self._send_message(len(body), message_type, body)
 
     async def _handshake(self):
-        data = json.dumps({'client_id': str(self._id), 'client_type': self._client_type}).encode('utf-8')
+        data = json.dumps({'client_id': str(self._id), 'client_type': self._client_type, 'version': VERSION}).encode(
+            'utf-8')
         await self._send_message(len(data), HANDSHAKE, data)
         self._last_heartbeat_send = datetime.datetime.now()
 

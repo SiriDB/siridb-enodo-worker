@@ -2,3 +2,5 @@
 *.pyc
 worker_local.conf
 worker_docker.conf
+test
+*.conf
