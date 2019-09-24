@@ -1,5 +1,4 @@
 import datetime
-import time
 
 import pandas as pd
 
@@ -7,7 +6,7 @@ from fbprophet import Prophet
 from lib.analyser.model.base import Model
 
 
-class ProphetModel(Model):
+class MovingAverageModel(Model):
 
     def __init__(self, serie_name, dataset):
         """
@@ -26,10 +25,6 @@ class ProphetModel(Model):
         self.is_stationary = False
         self._dataset.columns = ['ds', 'y']
         self._dataset['ds'] = pd.to_datetime(self._dataset['ds'], unit='s')
-        # self._dataset['ds'] = pd.to_datetime(self._dataset['ds'], format="%Y-%m-%d %H:%M:%S")
-
-        # remove outliers
-        self._dataset = self._remove_outlier(self._dataset, 'y')
         print(self._dataset)
 
     def create_model(self):
@@ -50,22 +45,6 @@ class ProphetModel(Model):
             periods = 20
 
         if update or self.forecast_values is None:
-            future = self._model.make_future_dataframe(periods=periods, freq=freq, include_history=False)
-            future.tail()
-
-            forecast = self._model.predict(future)
-            # forecast[['ds', 'yhat', 'yhat_lower', 'yhat_upper']].tail()
-            forecast.set_index('ds')
-
-            print(forecast)
-            forecast['ds'] = pd.to_datetime(forecast['ds'], format="%Y-%m-%d %H:%M:%S")
-            indexed_forecast_values = []
-            for index, row in forecast.iterrows():
-                indexed_forecast_values.append(
-                    [int(time.mktime(datetime.datetime.strptime(str(row['ds']), "%Y-%m-%d %H:%M:%S").timetuple())),
-                     row['yhat']])
-
-                self.forecast_values = indexed_forecast_values
-            return self.forecast_values
+            pass
         else:
             return self.forecast_values

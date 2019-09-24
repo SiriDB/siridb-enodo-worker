@@ -31,8 +31,10 @@ class ARIMAModel(Model):
 
         self.forecast_values = None
         self.is_stationary = False
+        print("H1")
 
     def create_model(self):
+        print("H2")
         try:
             self._adf_stationarity_test(self._dataset)
         except:
@@ -42,6 +44,7 @@ class ARIMAModel(Model):
         begin = self._dataset.iloc[[0]][0].to_dict().get(0)
         end = next(iter(self._dataset.iloc[[int(self._dataset.size / 4)]][0].to_dict().values()))
 
+        print("H3")
         if int(self._dataset.size / 4) <= 0:
             raise AnalysisInvalidDatasetSize
 
@@ -57,7 +60,7 @@ class ARIMAModel(Model):
 
         # Parse indexes to datetimes
         self._dataset.index = pd.to_datetime(self._dataset.index, unit='ms')
-
+        print("H4")
         if self._d is None:
             # Estimate the number of differences using an ADF test:
             self._d = ndiffs(self._dataset, test='adf')
@@ -79,6 +82,7 @@ class ARIMAModel(Model):
                                               stepwise=True)
 
             self._stepwise_model.fit(self._dataset.iloc[int(len(self._dataset.index) / 2):])
+            print("H5")
         except Exception as e:
             print(e)
             raise AnalyserException()
