@@ -27,8 +27,6 @@ class Analyser:
         self._analyser_queue = queue
 
     async def execute_job(self, job_type, serie_name, model, parameters):
-        import time
-        time.sleep(75)
         serie_data = await self._siridb_client.query_serie_data(serie_name)
         dataset = pd.DataFrame(serie_data[serie_name])
         analysis = None
@@ -85,7 +83,6 @@ class Analyser:
         error = None
         anomalies_timestamps = []
         try:
-            print('pizza')
             analysis_model.create_model()
             anomalies_timestamps = analysis_model.find_anomalies()
             print(anomalies_timestamps)
