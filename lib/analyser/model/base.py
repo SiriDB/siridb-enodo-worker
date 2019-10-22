@@ -57,6 +57,9 @@ class Model:
     def do_forecast(self):
         pass
 
+    def find_anomalies(self):
+        pass
+
     def pickle(self):
         pass
 

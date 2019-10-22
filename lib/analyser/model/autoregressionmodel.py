@@ -51,7 +51,7 @@ class AutoRegressionModel(Model):
         #
         # if periods < 20:
         #     periods = 20
-        l = 0/0
+        # l = 0/0
 
         if update or self.forecast_values is None:
             yhat = self._model.predict(len(self._dataset), len(self._dataset) + 200)

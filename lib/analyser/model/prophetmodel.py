@@ -20,6 +20,7 @@ class ProphetModel(Model):
         """
         super().__init__(serie_name, dataset)
         self._model = None
+        self._raw_dataset = dataset
         self._dataset = dataset
 
         self.forecast_values = None
@@ -69,3 +70,40 @@ class ProphetModel(Model):
             return self.forecast_values
         else:
             return self.forecast_values
+
+    def _predict_dateframe(self, dataframe):
+        m = Prophet(daily_seasonality=False, yearly_seasonality=False, weekly_seasonality=False,
+                    seasonality_mode='multiplicative',
+                    interval_width=0.99,
+                    changepoint_range=0.8)
+        m = m.fit(dataframe)
+        forecast = m.predict(dataframe)
+        forecast['fact'] = dataframe['y'].reset_index(drop=True)
+        return forecast
+
+    def find_anomalies(self):
+        forecast = self._predict_dateframe(self._raw_dataset)
+
+        forecasted = forecast[['ds', 'trend', 'yhat', 'yhat_lower', 'yhat_upper', 'fact']].copy()
+        # forecast['fact'] = df['y']
+
+        forecasted['anomaly'] = 0
+        forecasted.loc[forecasted['fact'] > forecasted['yhat_upper'], 'anomaly'] = 1
+        forecasted.loc[forecasted['fact'] < forecasted['yhat_lower'], 'anomaly'] = -1
+
+        # anomaly importances
+        forecasted['importance'] = 0
+        forecasted.loc[forecasted['anomaly'] == 1, 'importance'] = \
+            (forecasted['fact'] - forecasted['yhat_upper']) / forecast['fact']
+        forecasted.loc[forecasted['anomaly'] == -1, 'importance'] = \
+            (forecasted['yhat_lower'] - forecasted['fact']) / forecast['fact']
+
+        anomalies = forecasted[forecasted.anomaly != 0]
+
+        indexed_anomalies_values = []
+        for index, row in anomalies.iterrows():
+            indexed_anomalies_values.append(
+                [int(time.mktime(datetime.datetime.strptime(str(row['ds']), "%Y-%m-%d %H:%M:%S").timetuple())),
+                 row['yhat']])
+
+        return indexed_anomalies_values
