@@ -4,3 +4,4 @@ fbprophet
 pmdarima
 pandas
 statsmodels
+func_timeout==4.3.5

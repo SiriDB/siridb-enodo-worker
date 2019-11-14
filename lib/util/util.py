@@ -8,7 +8,9 @@ async def _waiter_check_cancel(cb):
         if await cb():
             return True
         import time
-        time.sleep(1)
+        # time.sleep(1)
+        import asyncio
+        await asyncio.sleep(1)
 
 
 async def wait_for_with_cancel(fut, timeout, *, loop=None, check_cancel=None):

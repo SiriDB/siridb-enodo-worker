@@ -9,7 +9,7 @@ from lib.analyser.model.base import Model
 
 class ProphetModel(Model):
 
-    def __init__(self, serie_name, dataset):
+    def __init__(self, serie_name, dataset, periods=None):
         """
         Start modelling a time serie
         :param serie_name: name of the serie
@@ -22,6 +22,7 @@ class ProphetModel(Model):
         self._model = None
         self._raw_dataset = dataset
         self._dataset = dataset
+        self._periods = periods
 
         self.forecast_values = None
         self.is_stationary = False
@@ -44,14 +45,13 @@ class ProphetModel(Model):
         :return:
         """
         freq = pd.Timedelta(self._find_frequency(self._dataset['ds'])).ceil('H')
-        periods = int(datetime.timedelta(days=7) / freq)
-        print(freq, periods)
-
-        if periods < 20:
-            periods = 20
-
+        if self._periods is None:
+            periods = int(datetime.timedelta(days=7) / freq)
+            if periods < 20:
+                periods = 20
+            self._periods = periods
         if update or self.forecast_values is None:
-            future = self._model.make_future_dataframe(periods=periods, freq=freq, include_history=False)
+            future = self._model.make_future_dataframe(periods=self._periods, freq=freq, include_history=False)
             future.tail()
 
             forecast = self._model.predict(future)
@@ -81,7 +81,7 @@ class ProphetModel(Model):
         forecast['fact'] = dataframe['y'].reset_index(drop=True)
         return forecast
 
-    def find_anomalies(self):
+    def find_anomalies(self, points_since):
         forecast = self._predict_dateframe(self._raw_dataset)
 
         forecasted = forecast[['ds', 'trend', 'yhat', 'yhat_lower', 'yhat_upper', 'fact']].copy()
@@ -102,8 +102,12 @@ class ProphetModel(Model):
 
         indexed_anomalies_values = []
         for index, row in anomalies.iterrows():
-            indexed_anomalies_values.append(
-                [int(time.mktime(datetime.datetime.strptime(str(row['ds']), "%Y-%m-%d %H:%M:%S").timetuple())),
-                 row['yhat']])
+            # indexed_anomalies_values.append(
+            #     [int(time.mktime(datetime.datetime.strptime(str(row['ds']), "%Y-%m-%d %H:%M:%S").timetuple())),
+            #      row['yhat']])
+            df_unix_sec = int(row['ds'].timestamp())
+            if df_unix_sec >= points_since:
+                indexed_anomalies_values.append(
+                    [df_unix_sec, row['fact']])
 
         return indexed_anomalies_values

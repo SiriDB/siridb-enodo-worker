@@ -1,5 +1,6 @@
 import asyncio
 import configparser
+import datetime
 import traceback
 
 from queue import Queue
@@ -30,11 +31,12 @@ class Worker:
         self._worker_thread = None
         self._current_job = None
         self._running = True
-        self._cancel_current_job = False
+        self._current_job_started_at = None
 
     async def _update_busy(self, busy, job_id=None):
         self._busy = busy
         self._current_job = job_id
+        self._current_job_started_at = datetime.datetime.now() if busy else None
         await self._client.send_message(busy, WORKER_UPDATE_BUSY)
 
     async def _send_refused(self):
@@ -55,6 +57,10 @@ class Worker:
                     result['job_id'] = self._current_job
                     await self._send_update(result)
                     await self._update_busy(False)
+            if self._busy and (
+                    datetime.datetime.now() - self._current_job_started_at).total_seconds() >= int(
+                self._max_job_duration):
+                await self._cancel_job()
             await asyncio.sleep(2)
 
     async def _send_update(self, pkl):
@@ -71,14 +77,13 @@ class Worker:
                 wrapper = data.get('wrapper')
                 wrapper = AnalyserWrapper(wrapper.get('_analyser_model'), wrapper.get('_model_type'),
                                           wrapper.get('_model_arguments'))
-                self._worker_thread = Thread(target=start_analysing, args=(
+                from func_timeout import StoppableThread
+                self._worker_thread = StoppableThread(target=start_analysing, args=(
                     worker_loop,
                     self._result_queue,
-                    self._max_job_duration,
-                    self._should_cancel,
-                    self._send_job_cancelled,
                     data.get("serie_name"),
                     data.get("job_type"),
+                    data.get("job_data"),
                     wrapper,
                     self._config['siridb']['user'],
                     self._config['siridb']['password'],
@@ -86,25 +91,24 @@ class Worker:
                     self._config['siridb']['host'],
                     self._config['siridb']['port'],))
                 # Start the thread
+                self._worker_thread.daemon = True
                 self._worker_thread.start()
             except Exception as e:
                 print("WOW: ", e)
                 print(traceback.print_exc())
 
-    async def _cancel_job(self, data):
-        if self._busy:
-            job_id = data.get('job_id')
-            if job_id is not None and self._current_job == job_id:
-                self._cancel_current_job = True
+    async def _cancel_job(self):
+        try:
+            self._worker_thread.stop(Exception, 2.0)
+        except Exception as e:
+            print('e')
+        finally:
+            await self._send_job_cancelled()
 
-    async def _should_cancel(self):
-        should = self._cancel_current_job
-        if should:
-            await self._job_cancelled()
-        return should
-
-    async def _job_cancelled(self):
-        self._cancel_current_job = False
+    async def _receive_to_cancel_job(self, data):
+        job_id = data.get('job_id')
+        if job_id is self._current_job:
+            await self._cancel_job()
 
     async def _send_job_cancelled(self):
         await self._client.send_message({"job_id": self._current_job}, WORKER_JOB_CANCELLED)
@@ -116,7 +120,7 @@ class Worker:
     async def start_worker(self):
         await self._client.setup(cbs={
             WORKER_JOB: self._receive_job,
-            WORKER_JOB_CANCEL: self._cancel_job
+            WORKER_JOB_CANCEL: self._receive_to_cancel_job
         },
             handshake_cb=self._add_handshake_data)
         self._client_run_task = self._loop.create_task(self._client.run())
