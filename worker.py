@@ -4,7 +4,8 @@ import datetime
 import traceback
 
 from queue import Queue
-from threading import Thread
+
+from enodo import EnodoModel
 from enodo.client import Client
 from enodo.client.package import *
 
@@ -32,6 +33,7 @@ class Worker:
         self._current_job = None
         self._running = True
         self._current_job_started_at = None
+        self._models = []
 
     async def _update_busy(self, busy, job_id=None):
         self._busy = busy
@@ -115,9 +117,16 @@ class Worker:
         await self._update_busy(False)
 
     async def _add_handshake_data(self):
-        return {'busy': self._busy}
+        return {'busy': self._busy,
+                'models': [await EnodoModel.to_dict(model) for model in self._models]}
 
     async def start_worker(self):
+        prophet_model = EnodoModel('prophet', {}, supports_forecasting=True, supports_anomaly_detection=True)
+        arima_model = EnodoModel('arima', {'m': True, 'd': True, 'D': True}, supports_forecasting=True,
+                                 supports_anomaly_detection=True)
+        self._models.append(prophet_model)
+        self._models.append(arima_model)
+
         await self._client.setup(cbs={
             WORKER_JOB: self._receive_job,
             WORKER_JOB_CANCEL: self._receive_to_cancel_job

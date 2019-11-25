@@ -8,7 +8,7 @@ class Model:
         """
         Start modelling a time serie
         :param serie_name: name of the serie
-        :param dataset: dataframe (Panda) with datapoints\
+        :param dataset: dataframe (Panda) with datapoints
         """
         self._serie_name = serie_name
         self._dataset = dataset
