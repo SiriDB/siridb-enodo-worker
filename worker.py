@@ -4,10 +4,13 @@ import datetime
 import traceback
 
 from queue import Queue
+from threading import Thread
 
 from enodo import EnodoModel
 from enodo.client import Client
-from enodo.client.package import *
+from enodo.protocol.package import *
+from enodo.jobs import JOB_TYPE_FORECAST_SERIE, JOB_TYPE_DETECT_ANOMALIES_FOR_SERIE, JOB_TYPE_BASE_SERIE_ANALYSES
+from enodo.protocol.packagedata import EnodoJobDataModel
 
 from lib.analyser.analyser import start_analysing, AnalyserWrapper
 
@@ -20,9 +23,11 @@ class Worker:
         self._config.read(config_path)
         self._series_to_watch = ()
         self._serie_counter_updates = {}
-        self._client = Client(loop, self._config['enodo']['hub_hostname'], int(self._config['enodo']['hub_port']),
-                              'worker', self._config['enodo']['internal_security_token'],
-                              heartbeat_interval=int(self._config['enodo']['heartbeat_interval']))
+        self._client = Client(loop,
+                                self._config['enodo']['hub_hostname'],
+                                int(self._config['enodo']['hub_port']),
+                                'worker', self._config['enodo']['internal_security_token'],
+                                heartbeat_interval=int(self._config['enodo']['heartbeat_interval']))
         self._client_run_task = None
         self._updater_task = None
         self._result_queue = Queue()
@@ -33,12 +38,13 @@ class Worker:
         self._current_job = None
         self._running = True
         self._current_job_started_at = None
-        self._models = []
+        self._jobs_and_models = {}
 
     async def _update_busy(self, busy, job_id=None):
         self._busy = busy
         self._current_job = job_id
         self._current_job_started_at = datetime.datetime.now() if busy else None
+        print("HSASA", WORKER_UPDATE_BUSY)
         await self._client.send_message(busy, WORKER_UPDATE_BUSY)
 
     async def _send_refused(self):
@@ -49,6 +55,7 @@ class Worker:
 
     async def _check_for_update(self):
         while self._running:
+            print("JERE~!!!")
             if not self._result_queue.empty():
                 try:
                     result = self._result_queue.get()
@@ -57,13 +64,16 @@ class Worker:
                     pass
                 else:
                     result['job_id'] = self._current_job
+                    print("h1")
                     await self._send_update(result)
+                    print("h2")
                     await self._update_busy(False)
             if self._busy and (
                     datetime.datetime.now() - self._current_job_started_at).total_seconds() >= int(
                 self._max_job_duration):
                 await self._cancel_job()
             await asyncio.sleep(2)
+            print("sadasdas", self._running)
 
     async def _send_update(self, pkl):
         await self._client.send_message(pkl, WORKER_JOB_RESULT)
@@ -72,15 +82,55 @@ class Worker:
         if self._busy:
             await self._send_refused()
         else:
+            print(f'Received job request for serie: "{data.get("serie_name")}"')
+            await self._update_busy(True, data.get('job_id'))
+            worker_loop = asyncio.new_event_loop()
+            job_type = data.get('job_type')
             try:
-                print(f'Received job request for serie: "{data.get("serie_name")}"')
-                await self._update_busy(True, data.get('job_id'))
-                worker_loop = asyncio.new_event_loop()
-                wrapper = data.get('wrapper')
-                wrapper = AnalyserWrapper(wrapper.get('_analyser_model'), wrapper.get('_model_type'),
-                                          wrapper.get('_model_arguments'))
+                if job_type == JOB_TYPE_FORECAST_SERIE:
+                    job_data = None
+                    if data.get('job_data') is not None:
+                        job_data = EnodoJobDataModel.unserialize(data.get('job_data'))
+                    model_name = job_data.get("model_name")
+                    if not await self._check_support_job_and_model(job_type, model_name):
+                        await self._send_update(
+                        {'error': 'Unsupported model for job_type', 'job_id': data.get('job_id'), 'name': data.get("serie_name")})
+                        await self._update_busy(False)
+                        return
+                    wrapper = AnalyserWrapper(job_data.get("model_name"), job_data.get('model_parameters'))
+                elif job_type == JOB_TYPE_DETECT_ANOMALIES_FOR_SERIE:
+                    job_data = None
+                    if data.get('job_data') is not None:
+                        job_data = EnodoJobDataModel.unserialize(data.get('job_data'))
+                    model_name = job_data.get("model_name")
+                    if not await self._check_support_job_and_model(job_type, model_name):
+                        await self._send_update(
+                        {'error': 'Unsupported model for job_type', 'job_id': data.get('job_id'), 'name': data.get("serie_name")})
+                        await self._update_busy(False)
+                        return
+                    wrapper = AnalyserWrapper(job_data.get("model_name"), job_data.get('model_parameters'))
+                elif job_type == JOB_TYPE_BASE_SERIE_ANALYSES:
+                    job_data = None
+                    if data.get('job_data') is not None:
+                        job_data = await EnodoJobDataModel.unserialize(data.get('job_data'))
+                    if not await self._check_support_job_and_model(job_type):
+                        await self._send_update(
+                        {'error': 'Unsupported model for job_type', 'job_id': data.get('job_id'), 'name': data.get("serie_name")})
+                        await self._update_busy(False)
+                        return
+                    wrapper = AnalyserWrapper(None, None)
+                else:
+                    await self._send_update(
+                        {'error': 'Unsupported job_type', 'job_id': data.get('job_id'), 'name': data.get("serie_name")})
+                    await self._update_busy(False)
+                    return
+            except Exception as e:
+                print(e)
+                import traceback
+                traceback.print_exc()
+            try:
                 from func_timeout import StoppableThread
-                self._worker_thread = StoppableThread(target=start_analysing, args=(
+                self._worker_thread = Thread(target=start_analysing, args=(
                     worker_loop,
                     self._result_queue,
                     data.get("serie_name"),
@@ -93,11 +143,20 @@ class Worker:
                     self._config['siridb']['host'],
                     self._config['siridb']['port'],))
                 # Start the thread
-                self._worker_thread.daemon = True
+                # self._worker_thread.daemon = True
                 self._worker_thread.start()
             except Exception as e:
                 print("WOW: ", e)
                 print(traceback.print_exc())
+
+    async def _check_support_job_and_model(self, job_type, model_name=None):
+        if job_type in self._jobs_and_models.keys():
+            if model_name is None:
+                return True
+            for model in self._jobs_and_models.get(job_type):
+                if model_name == model.model_name:
+                    return True
+        return False
 
     async def _cancel_job(self):
         try:
@@ -117,15 +176,25 @@ class Worker:
         await self._update_busy(False)
 
     async def _add_handshake_data(self):
+        serialized_jobs_and_models = {}
+        for job in self._jobs_and_models:
+            serialized_jobs_and_models[job] = [await EnodoModel.to_dict(model) for model in self._jobs_and_models[job]]
+
         return {'busy': self._busy,
-                'models': [await EnodoModel.to_dict(model) for model in self._models]}
+                'jobs_and_models': serialized_jobs_and_models}
 
     async def start_worker(self):
         prophet_model = EnodoModel('prophet', {}, supports_forecasting=True, supports_anomaly_detection=True)
         arima_model = EnodoModel('arima', {'m': True, 'd': True, 'D': True}, supports_forecasting=True,
                                  supports_anomaly_detection=True)
-        self._models.append(prophet_model)
-        self._models.append(arima_model)
+        self._jobs_and_models[JOB_TYPE_FORECAST_SERIE] = list()
+        self._jobs_and_models[JOB_TYPE_DETECT_ANOMALIES_FOR_SERIE] = list()
+        self._jobs_and_models[JOB_TYPE_BASE_SERIE_ANALYSES] = list()
+
+        self._jobs_and_models[JOB_TYPE_FORECAST_SERIE].append(prophet_model)
+        self._jobs_and_models[JOB_TYPE_FORECAST_SERIE].append(arima_model)
+
+        self._jobs_and_models[JOB_TYPE_DETECT_ANOMALIES_FOR_SERIE].append(prophet_model)
 
         await self._client.setup(cbs={
             WORKER_JOB: self._receive_job,
