@@ -4,13 +4,13 @@ from statsmodels.tsa.stattools import adfuller
 
 
 class Model:
-    def __init__(self, serie_name, dataset, initialize=True):
+    def __init__(self, series_name, dataset, initialize=True):
         """
         Start modelling a time serie
-        :param serie_name: name of the serie
+        :param series_name: name of the serie
         :param dataset: dataframe (Panda) with datapoints
         """
-        self._serie_name = serie_name
+        self._series_name = series_name
         self._dataset = dataset
 
         if initialize:
@@ -64,5 +64,5 @@ class Model:
         pass
 
     @classmethod
-    def unload(cls, serie_name):
+    def unload(cls, series_name):
         pass

@@ -1,11 +1,8 @@
 numpy
 siridb-connector
-fbprophet
+holidays>=0.10.2
+fbprophet==0.7.1
 pmdarima
 pandas
 statsmodels
 func_timeout==4.3.5
-
-
-
-holidays>=0.9.5,<0.10.1

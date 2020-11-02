@@ -10,6 +10,9 @@ async def basic_series_analysis(data_points):
     }
 
 async def _get_series_slope(data):
-    coeffs = np.polyfit(data.index.values, list(data), 1)
-    slope = coeffs[-2]
+    try:
+        coeffs = np.polyfit(data.index.values, list(data), 1)
+        slope = coeffs[-2]
+    except Exception as _:
+        return None
     return float(slope)

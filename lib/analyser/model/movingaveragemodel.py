@@ -8,16 +8,16 @@ from lib.analyser.model.base import Model
 
 class MovingAverageModel(Model):
 
-    def __init__(self, serie_name, dataset):
+    def __init__(self, series_name, dataset):
         """
         Start modelling a time serie
-        :param serie_name: name of the serie
+        :param series_name: name of the serie
         :param dataset: dataframe (Panda) with datapoints
         :param m: the seasonality factor
         :param d: the de-rending differencing factor
         :param d_large: the de-seasonality differencing factor
         """
-        super().__init__(serie_name, dataset)
+        super().__init__(series_name, dataset)
         self._model = None
         self._dataset = dataset
 

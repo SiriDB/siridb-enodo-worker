@@ -9,16 +9,16 @@ from lib.analyser.model.base import Model
 
 class ProphetModel(Model):
 
-    def __init__(self, serie_name, dataset, periods=None):
+    def __init__(self, series_name, dataset, periods=None):
         """
         Start modelling a time serie
-        :param serie_name: name of the serie
+        :param series_name: name of the serie
         :param dataset: dataframe (Panda) with datapoints
         :param m: the seasonality factor
         :param d: the de-rending differencing factor
         :param d_large: the de-seasonality differencing factor
         """
-        super().__init__(serie_name, dataset)
+        super().__init__(series_name, dataset)
         self._model = None
         self._raw_dataset = dataset
         self._dataset = dataset
@@ -28,7 +28,6 @@ class ProphetModel(Model):
         self.is_stationary = False
         self._dataset.columns = ['ds', 'y']
         self._dataset['ds'] = pd.to_datetime(self._dataset['ds'], unit='s')
-        # self._dataset['ds'] = pd.to_datetime(self._dataset['ds'], format="%Y-%m-%d %H:%M:%S")
 
         # remove outliers
         self._dataset = self._remove_outlier(self._dataset, 'y')
@@ -51,11 +50,10 @@ class ProphetModel(Model):
                 periods = 20
             self._periods = periods
         if update or self.forecast_values is None:
-            future = self._model.make_future_dataframe(periods=self._periods, freq=freq, include_history=False)
+            future = self._model.make_future_dataframe(periods=self._periods, freq=freq, include_history=True)
             future.tail()
 
             forecast = self._model.predict(future)
-            # forecast[['ds', 'yhat', 'yhat_lower', 'yhat_upper']].tail()
             forecast.set_index('ds')
 
             print(forecast)
@@ -85,14 +83,13 @@ class ProphetModel(Model):
         forecast = self._predict_dateframe(self._raw_dataset)
 
         forecasted = forecast[['ds', 'trend', 'yhat', 'yhat_lower', 'yhat_upper', 'fact']].copy()
-        # forecast['fact'] = df['y']
 
         forecasted['anomaly'] = 0
         forecasted.loc[forecasted['fact'] > forecasted['yhat_upper'], 'anomaly'] = 1
         forecasted.loc[forecasted['fact'] < forecasted['yhat_lower'], 'anomaly'] = -1
 
         # anomaly importances
-        forecasted['importance'] = 0
+        forecasted['importance'] = 2
         forecasted.loc[forecasted['anomaly'] == 1, 'importance'] = \
             (forecasted['fact'] - forecasted['yhat_upper']) / forecast['fact']
         forecasted.loc[forecasted['anomaly'] == -1, 'importance'] = \
@@ -102,9 +99,6 @@ class ProphetModel(Model):
 
         indexed_anomalies_values = []
         for index, row in anomalies.iterrows():
-            # indexed_anomalies_values.append(
-            #     [int(time.mktime(datetime.datetime.strptime(str(row['ds']), "%Y-%m-%d %H:%M:%S").timetuple())),
-            #      row['yhat']])
             df_unix_sec = int(row['ds'].timestamp())
             if df_unix_sec >= points_since:
                 indexed_anomalies_values.append(

@@ -12,16 +12,16 @@ from lib.exceptions.analyserexception import AnalyserException, AnalysisInvalidA
 
 class ARIMAModel(Model):
 
-    def __init__(self, serie_name, dataset, m, d=None, d_large=None):
+    def __init__(self, series_name, dataset, m, d=None, d_large=None):
         """
         Start modelling a time serie
-        :param serie_name: name of the serie
+        :param series_name: name of the serie
         :param dataset: dataframe (Panda) with datapoints
         :param m: the seasonality factor
         :param d: the de-rending differencing factor
         :param d_large: the de-seasonality differencing factor
         """
-        super().__init__(serie_name, dataset)
+        super().__init__(series_name, dataset)
         self._m = m
         self._d = d
         self._d_large = d_large
@@ -122,7 +122,7 @@ class ARIMAModel(Model):
     def unpickle(cls, data):
         """
         Load Analysis class from existing model.
-        :param serie_name:
+        :param series_name:
         :return:
         """
         return pickle.loads(data)

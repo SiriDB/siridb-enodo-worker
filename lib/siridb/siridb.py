@@ -17,26 +17,26 @@ class SiriDB:
             keepalive=True)
 
     # @classmethod
-    async def query_serie_datapoint_count(self, serie_name):
+    async def query_series_datapoint_count(self, series_name):
         await self.siri.connect()
         count = None
         try:
-            result = await self.siri.query(f'select count() from "{serie_name}"')
+            result = await self.siri.query(f'select count() from "{series_name}"')
         except (QueryError, InsertError, ServerError, PoolError, AuthenticationError, UserAuthError) as e:
             print("Connection problem with SiriDB server")
             pass
         else:
-            print(serie_name, result)
-            count = result.get(serie_name, [])[0][1]
+            print(series_name, result)
+            count = result.get(series_name, [])[0][1]
         self.siri.close()
         return count
 
     # @classmethod
-    async def query_serie_data(self, serie_name, selector="*"):
+    async def query_series_data(self, series_name, selector="*"):
         await self.siri.connect()
         result = None
         try:
-            result = await self.siri.query(f'select {selector} from "{serie_name}"')
+            result = await self.siri.query(f'select {selector} from "{series_name}"')
         except (QueryError, InsertError, ServerError, PoolError, AuthenticationError, UserAuthError) as e:
             print("Connection problem with SiriDB server")
             pass
