@@ -6,6 +6,7 @@ import pandas as pd
 from lib.analyser.model.autoregressionmodel import AutoRegressionModel
 from lib.analyser.model.movingaveragemodel import MovingAverageModel
 from lib.analyser.model.prophetmodel import ProphetModel
+from lib.analyser.model.ffemodel import FastFourierExtrapolationModel
 from lib.analyser.baseanalysis import basic_series_analysis
 from lib.siridb.siridb import SiriDB
 
@@ -42,16 +43,10 @@ class Analyser:
             model = job_data.get('series_config').get('job_models').get(job_type)
             parameters = job_data.get('series_config').get('model_params')
             try:
-                # if model == 'arima':
-                #     analysis = ARIMAModel(series_name, dataset, m=parameters.get('m', 12),
-                #                         d=parameters.get('d', None),
-                #                         d_large=parameters.get('D', None))
                 if model == 'prophet':
                     analysis = ProphetModel(series_name, dataset, 100)
-                # elif model == 'ar':
-                #     analysis = AutoRegressionModel(series_name, dataset)
-                # elif model == 'ma':
-                #     analysis = MovingAverageModel(series_name, dataset)
+                elif model =='ffe':
+                    analysis = FastFourierExtrapolationModel(series_name, series_data[series_name], parameters)
                 else:
                     raise Exception()
             except Exception as e:
@@ -88,6 +83,8 @@ class Analyser:
             forecast_values = analysis_model.do_forecast()
         except Exception as e:
             error = str(e)
+            import traceback
+            traceback.print_exc()
         finally:
             print(error)
             if error is not None:

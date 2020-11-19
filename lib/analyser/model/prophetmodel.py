@@ -30,7 +30,7 @@ class ProphetModel(Model):
         self._dataset['ds'] = pd.to_datetime(self._dataset['ds'], unit='s')
 
         # remove outliers
-        self._dataset = self._remove_outlier(self._dataset, 'y')
+        self._dataset = self._remove_outlier_in_df(self._dataset, 'y')
         print(self._dataset)
 
     def create_model(self):

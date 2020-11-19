@@ -160,16 +160,23 @@ class Worker:
                 'jobs_and_models': serialized_jobs_and_models}
 
     async def start_worker(self):
-        prophet_model = EnodoModel('prophet', {}, supports_forecasting=True, supports_anomaly_detection=True)
-        arima_model = EnodoModel('arima', {'m': True, 'd': True, 'D': True}, supports_forecasting=True,
-                                 supports_anomaly_detection=True)
+        # Declare model params
+        prophet_model = EnodoModel('prophet', {})
+        ffe_model = EnodoModel('ffe', {'points_since': True, 'sensitivity': True})
+
+        # init job models
         self._jobs_and_models[JOB_TYPE_FORECAST_SERIES] = list()
         self._jobs_and_models[JOB_TYPE_DETECT_ANOMALIES_FOR_SERIES] = list()
         self._jobs_and_models[JOB_TYPE_BASE_SERIES_ANALYSIS] = list()
 
-        self._jobs_and_models[JOB_TYPE_FORECAST_SERIES].append(prophet_model)
+        #insert models per job
         self._jobs_and_models[JOB_TYPE_BASE_SERIES_ANALYSIS].append(prophet_model)
+
+        self._jobs_and_models[JOB_TYPE_FORECAST_SERIES].append(prophet_model)
+        self._jobs_and_models[JOB_TYPE_FORECAST_SERIES].append(ffe_model)
+        
         self._jobs_and_models[JOB_TYPE_DETECT_ANOMALIES_FOR_SERIES].append(prophet_model)
+        self._jobs_and_models[JOB_TYPE_DETECT_ANOMALIES_FOR_SERIES].append(ffe_model)
 
         await self._client.setup(cbs={
             WORKER_JOB: self._receive_job,
