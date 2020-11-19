@@ -160,9 +160,8 @@ class Worker:
                 'jobs_and_models': serialized_jobs_and_models}
 
     async def start_worker(self):
-        prophet_model = EnodoModel('prophet', {}, supports_forecasting=True, supports_anomaly_detection=True)
-        arima_model = EnodoModel('arima', {'m': True, 'd': True, 'D': True}, supports_forecasting=True,
-                                 supports_anomaly_detection=True)
+        prophet_model = EnodoModel('prophet', {})
+        arima_model = EnodoModel('arima', {'m': True, 'd': True, 'D': True})
         self._jobs_and_models[JOB_TYPE_FORECAST_SERIES] = list()
         self._jobs_and_models[JOB_TYPE_DETECT_ANOMALIES_FOR_SERIES] = list()
         self._jobs_and_models[JOB_TYPE_BASE_SERIES_ANALYSIS] = list()
