@@ -1,8 +1,8 @@
-numpy
-siridb-connector
-holidays>=0.10.2
 fbprophet==0.7.1
-pmdarima
-pandas
-statsmodels
 func_timeout==4.3.5
+holidays>=0.10.2
+numpy==1.20.1
+pandas==1.2.2
+pmdarima==1.8.0
+siridb-connector==2.0.5
+statsmodels==0.12.2
