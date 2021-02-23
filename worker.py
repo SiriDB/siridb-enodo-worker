@@ -154,7 +154,7 @@ class Worker:
     async def _add_handshake_data(self):
         serialized_jobs_and_models = {}
         for job in self._jobs_and_models:
-            serialized_jobs_and_models[job] = [await EnodoModel.to_dict(model) for model in self._jobs_and_models[job]]
+            serialized_jobs_and_models[job] = [EnodoModel.to_dict(model) for model in self._jobs_and_models[job]]
 
         return {'busy': self._busy,
                 'jobs_and_models': serialized_jobs_and_models}
