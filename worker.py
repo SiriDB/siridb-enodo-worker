@@ -10,17 +10,18 @@ from version import VERSION
 from enodo import EnodoModel
 from enodo.client import Client
 from enodo.protocol.package import *
-from enodo.jobs import JOB_TYPE_FORECAST_SERIES, JOB_TYPE_DETECT_ANOMALIES_FOR_SERIES, JOB_TYPE_BASE_SERIES_ANALYSIS
+from enodo.jobs import JOB_TYPE_FORECAST_SERIES, JOB_TYPE_DETECT_ANOMALIES_FOR_SERIES, JOB_TYPE_BASE_SERIES_ANALYSIS, JOB_TYPE_STATIC_RULES
 from enodo.protocol.packagedata import EnodoJobDataModel
 
 from lib.analyser.analyser import start_analysing
+from lib.config import EnodoConfigParser
 
 
 class Worker:
 
     def __init__(self, loop, config_path):
         self._loop = loop
-        self._config = configparser.ConfigParser()
+        self._config = EnodoConfigParser()
         self._config.read(config_path)
         self._client = Client(loop,
                                 self._config['enodo']['hub_hostname'],
@@ -91,7 +92,7 @@ class Worker:
             worker_loop = asyncio.new_event_loop()
             job_type = data.get('job_type')
             try:
-                if job_type in [JOB_TYPE_FORECAST_SERIES, JOB_TYPE_DETECT_ANOMALIES_FOR_SERIES, JOB_TYPE_BASE_SERIES_ANALYSIS]:
+                if job_type in [JOB_TYPE_FORECAST_SERIES, JOB_TYPE_DETECT_ANOMALIES_FOR_SERIES, JOB_TYPE_BASE_SERIES_ANALYSIS, JOB_TYPE_STATIC_RULES]:
                     model_name = data.get("model_name")
                     if not await self._check_support_job_and_model(job_type, model_name):
                         await self._send_update(
@@ -154,7 +155,7 @@ class Worker:
     async def _add_handshake_data(self):
         serialized_jobs_and_models = {}
         for job in self._jobs_and_models:
-            serialized_jobs_and_models[job] = [await EnodoModel.to_dict(model) for model in self._jobs_and_models[job]]
+            serialized_jobs_and_models[job] = [EnodoModel.to_dict(model) for model in self._jobs_and_models[job]]
 
         return {'busy': self._busy,
                 'jobs_and_models': serialized_jobs_and_models}
@@ -163,11 +164,13 @@ class Worker:
         # Declare model params
         prophet_model = EnodoModel('prophet', {})
         ffe_model = EnodoModel('ffe', {'points_since': True, 'sensitivity': True})
+        static_rule_engine = EnodoModel('static_rule_engine', {})
 
         # init job models
         self._jobs_and_models[JOB_TYPE_FORECAST_SERIES] = list()
         self._jobs_and_models[JOB_TYPE_DETECT_ANOMALIES_FOR_SERIES] = list()
         self._jobs_and_models[JOB_TYPE_BASE_SERIES_ANALYSIS] = list()
+        self._jobs_and_models[JOB_TYPE_STATIC_RULES] = list()
 
         #insert models per job
         self._jobs_and_models[JOB_TYPE_BASE_SERIES_ANALYSIS].append(prophet_model)
@@ -177,6 +180,8 @@ class Worker:
         
         self._jobs_and_models[JOB_TYPE_DETECT_ANOMALIES_FOR_SERIES].append(prophet_model)
         self._jobs_and_models[JOB_TYPE_DETECT_ANOMALIES_FOR_SERIES].append(ffe_model)
+
+        self._jobs_and_models[JOB_TYPE_STATIC_RULES].append(static_rule_engine)
 
         await self._client.setup(cbs={
             WORKER_JOB: self._receive_job,
