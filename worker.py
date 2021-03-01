@@ -2,6 +2,7 @@ import asyncio
 import configparser
 import datetime
 import traceback
+import os
 
 from queue import Queue
 from threading import Thread
@@ -22,7 +23,8 @@ class Worker:
     def __init__(self, loop, config_path):
         self._loop = loop
         self._config = EnodoConfigParser()
-        self._config.read(config_path)
+        if config_path is not None and os.path.exists(config_path):
+            self._config.read(config_path)
         self._client = Client(loop,
                                 self._config['enodo']['hub_hostname'],
                                 int(self._config['enodo']['hub_port']),
@@ -73,21 +75,21 @@ class Worker:
             await asyncio.sleep(2)
 
     async def _send_update(self, pkl):
-        await self._client.send_message(pkl, WORKER_JOB_RESULT)
+        try:
+            await self._client.send_message(pkl, WORKER_JOB_RESULT)
+        except Exception as e:
+            print("ERROR:", e)
 
     async def _receive_job(self, data):
-        print("HALLLO", data)
         if self._busy:
             await self._send_refused()
         else:
-            print("BOB")
             try:
                 data = EnodoJobDataModel.unserialize(data)
             
                 print(f'Received job request for series: "{data.get("series_name")}"')
             except Exception as e:
                 print(e)
-            print('bob3')
             await self._update_busy(True, data.get('job_id'))
             worker_loop = asyncio.new_event_loop()
             job_type = data.get('job_type')
@@ -123,7 +125,6 @@ class Worker:
                 # self._worker_thread.daemon = True
                 self._worker_thread.start()
             except Exception as e:
-                print("WOW: ", e)
                 print(traceback.print_exc())
 
     async def _check_support_job_and_model(self, job_type, model_name=None):

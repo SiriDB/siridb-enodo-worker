@@ -25,7 +25,6 @@ class MovingAverageModel(Model):
         self.is_stationary = False
         self._dataset.columns = ['ds', 'y']
         self._dataset['ds'] = pd.to_datetime(self._dataset['ds'], unit='s')
-        print(self._dataset)
 
     def create_model(self):
         self._model = Prophet()
@@ -39,7 +38,6 @@ class MovingAverageModel(Model):
         """
         freq = pd.Timedelta(self._find_frequency(self._dataset['ds'])).ceil('H')
         periods = int(datetime.timedelta(days=7) / freq)
-        print(freq, periods)
 
         if periods < 20:
             periods = 20

@@ -61,7 +61,12 @@ class FastFourierExtrapolationModel(Model):
         if not is_forecast:
             n_predict = 0
         else:
-            self._fourier_remove_outliers(list_ts_values)
+            df = pd.DataFrame.from_records(list_ts_values, columns=["ts", "value"])
+            y = df['value']
+            removed_outliers = y.between(y.quantile(.05), y.quantile(.95))
+            ndf = df[removed_outliers]
+            list_ts_values = [list(r) for r in ndf.to_records(index=False)]
+            # self._fourier_remove_outliers(list_ts_values)
 
         x = [r[1] for r in list_ts_values]
         n = len(x)
@@ -108,7 +113,6 @@ class FastFourierExtrapolationModel(Model):
             for i in range(len(fe_values)):
                 last_timestamp = last_timestamp + mean_interval
                 fe_ts_v.append([last_timestamp, fe_values[i]])
-
         return fe_ts_v
 
     def _fourier_remove_outliers(self, data, sensitivity=2):

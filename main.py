@@ -5,7 +5,7 @@ import signal
 from worker import Worker
 
 parser = argparse.ArgumentParser(description='Process config')
-parser.add_argument('--config', help='Config path', required=True)
+parser.add_argument('--config', help='Config path', required=False)
 
 
 async def shutdown(signal, loop, worker):
