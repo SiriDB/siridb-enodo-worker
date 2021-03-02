@@ -3,6 +3,9 @@ import time
 
 import pandas as pd
 
+import logging
+logger = logging.getLogger('fbprophet.plot')
+logger.setLevel(logging.CRITICAL)
 from fbprophet import Prophet
 from lib.analyser.model.base import Model
 

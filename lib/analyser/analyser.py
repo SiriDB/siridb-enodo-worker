@@ -1,4 +1,5 @@
 import asyncio
+import logging
 
 import pandas as pd
 
@@ -11,12 +12,6 @@ from lib.analyser.baseanalysis import basic_series_analysis
 from lib.siridb.siridb import SiriDB
 
 from enodo.jobs import JOB_TYPE_FORECAST_SERIES, JOB_TYPE_DETECT_ANOMALIES_FOR_SERIES, JOB_TYPE_BASE_SERIES_ANALYSIS, JOB_TYPE_STATIC_RULES
-
-# JOB_TYPE_FORECAST_SERIES = 1
-# JOB_TYPE_DETECT_ANOMALIES_FOR_SERIES = 2
-# JOB_TYPE_BASE_SERIES_ANALYSIS = 3
-
-# JOB_TYPES = [JOB_TYPE_BASE_SERIES_ANALYSIS, JOB_TYPE_FORECAST_SERIES, JOB_TYPE_DETECT_ANOMALIES_FOR_SERIES]
 
 
 
@@ -96,7 +91,6 @@ class Analyser:
         :param series_name:
         :return:
         """
-        print("START ANALYSE")
         error = None
         forecast_values = []
         try:
@@ -104,10 +98,9 @@ class Analyser:
             forecast_values = analysis_model.do_forecast()
         except Exception as e:
             error = str(e)
-            import traceback
-            traceback.print_exc()
+            logging.error('Error while making and executing forcast model')
+            logging.debug(f'Correspondig error: {str(e)}')
         finally:
-            print(error)
             if error is not None:
                 self._analyser_queue.put({'name': series_name, 'job_type': JOB_TYPE_FORECAST_SERIES, 'error': error})
             else:
@@ -128,8 +121,9 @@ class Analyser:
             anomalies_timestamps = analysis_model.find_anomalies(since)
         except Exception as e:
             error = str(e)
+            logging.error('Error while making and executing anomaly detection model')
+            logging.debug(f'Correspondig error: {str(e)}')
         finally:
-            print(error)
             if error is not None:
                 self._analyser_queue.put({'name': series_name, 'job_type': JOB_TYPE_DETECT_ANOMALIES_FOR_SERIES, 'error': error})
             else:
@@ -147,16 +141,14 @@ async def _save_start_with_timeout(loop, queue, job_data,
                             siridb_port)
         await analyser.execute_job(job_data)
     except Exception as e:
-        print(e)
-        import traceback
-        traceback.print_exc()
+        logging.error('Error while executing Analyzer')
+        logging.debug(f'Correspondig error: {str(e)}')
 
 
 def start_analysing(loop, queue, job_data,
                     siridb_user, siridb_password,
                     siridb_dbname, siridb_host, siridb_port):
     """Switch to new event loop and run forever"""
-    print("ENTERING THREAD")
     asyncio.set_event_loop(loop)
     try:
         loop.run_until_complete(
@@ -166,7 +158,4 @@ def start_analysing(loop, queue, job_data,
                                      siridb_port))
         loop.stop()
     except Exception as e:
-        print(e)
-        import traceback
-        print(traceback.print_exc())
         exit()

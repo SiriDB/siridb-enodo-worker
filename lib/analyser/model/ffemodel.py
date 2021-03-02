@@ -63,10 +63,9 @@ class FastFourierExtrapolationModel(Model):
         else:
             df = pd.DataFrame.from_records(list_ts_values, columns=["ts", "value"])
             y = df['value']
-            removed_outliers = y.between(y.quantile(.05), y.quantile(.95))
+            removed_outliers = y.between(y.quantile(.10), y.quantile(.90))
             ndf = df[removed_outliers]
             list_ts_values = [list(r) for r in ndf.to_records(index=False)]
-            # self._fourier_remove_outliers(list_ts_values)
 
         x = [r[1] for r in list_ts_values]
         n = len(x)
@@ -102,7 +101,7 @@ class FastFourierExtrapolationModel(Model):
                     last_timestamp = list_ts_values[i][0]
                 last_timestamp += mean_interval
                 current_ts = list_ts_values[i][0] if i < len(list_ts_values) else last_timestamp
-                fe_ts_v.append([current_ts, fe_values[i]])
+                fe_ts_v.append([int(current_ts), float(fe_values[i])])
         else:
             for i in range(len(list_ts_values)):
                 if last_timestamp is not None:
@@ -112,29 +111,5 @@ class FastFourierExtrapolationModel(Model):
             last_timestamp = list_ts_values[-1][0]
             for i in range(len(fe_values)):
                 last_timestamp = last_timestamp + mean_interval
-                fe_ts_v.append([last_timestamp, fe_values[i]])
+                fe_ts_v.append([int(last_timestamp), float(fe_values[i])])
         return fe_ts_v
-
-    def _fourier_remove_outliers(self, data, sensitivity=2):
-        fe = self._fourier_extrapolation(data, 0, is_forecast=False)
-
-        if len(fe) != len(data):
-            raise Exception("Unequal length between ts data and extrapolation")
-        
-        average_difference = 0
-        start_index_to_analyse = None
-        
-        for i in range(len(data)):
-            average_difference += abs(data[i][1] - fe[i][1]) / len(data)
-            if start_index_to_analyse is None:
-                start_index_to_analyse = i
-
-        max_difference_from_fe = sensitivity * average_difference
-
-        for i in range(start_index_to_analyse, len(data)):
-            diff = abs(data[i][1] - fe[i][1])
-            if diff > max_difference_from_fe:
-                if fe[i][1] > data[i][1]:
-                    data[i][1] += diff - max_difference_from_fe
-                else:
-                    data[i][1] -= diff - max_difference_from_fe
