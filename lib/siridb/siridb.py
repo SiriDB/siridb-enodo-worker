@@ -1,3 +1,5 @@
+import logging
+
 from siridb.connector import SiriDBClient
 from siridb.connector.lib.exceptions import QueryError, InsertError, ServerError, PoolError, AuthenticationError, \
     UserAuthError
@@ -23,10 +25,8 @@ class SiriDB:
         try:
             result = await self.siri.query(f'select count() from "{series_name}"')
         except (QueryError, InsertError, ServerError, PoolError, AuthenticationError, UserAuthError) as e:
-            print("Connection problem with SiriDB server")
-            pass
+            logging.error('Connection problem with SiriDB server')
         else:
-            print(series_name, result)
             count = result.get(series_name, [])[0][1]
         self.siri.close()
         return count
@@ -38,8 +38,7 @@ class SiriDB:
         try:
             result = await self.siri.query(f'select {selector} from "{series_name}"')
         except (QueryError, InsertError, ServerError, PoolError, AuthenticationError, UserAuthError) as e:
-            print("Connection problem with SiriDB server")
-            pass
+            logging.error('Connection problem with SiriDB server')
         self.siri.close()
         return result
 

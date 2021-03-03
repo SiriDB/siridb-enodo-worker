@@ -1,6 +1,7 @@
 from datetime import timedelta
 
 from statsmodels.tsa.stattools import adfuller
+import pandas as pd
 
 
 class Model:
@@ -42,7 +43,7 @@ class Model:
     # accept a dataframe, remove outliers, return cleaned data in a new dataframe
     # see http://www.itl.nist.gov/div898/handbook/prc/section1/prc16.htm
     # ------------------------------------------------------------------------------
-    def _remove_outlier(self, df_in, col_name):
+    def _remove_outlier_in_df(self, df_in, col_name):
         q1 = df_in[col_name].quantile(0.05)
         q3 = df_in[col_name].quantile(0.95)
         iqr = q3 - q1  # Interquartile range

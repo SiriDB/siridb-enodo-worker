@@ -1,4 +1,5 @@
 import asyncio
+import logging
 
 import pandas as pd
 
@@ -6,16 +7,11 @@ import pandas as pd
 from lib.analyser.model.autoregressionmodel import AutoRegressionModel
 from lib.analyser.model.movingaveragemodel import MovingAverageModel
 from lib.analyser.model.prophetmodel import ProphetModel
+from lib.analyser.model.ffemodel import FastFourierExtrapolationModel
 from lib.analyser.baseanalysis import basic_series_analysis
 from lib.siridb.siridb import SiriDB
 
-from enodo.jobs import JOB_TYPE_FORECAST_SERIES, JOB_TYPE_DETECT_ANOMALIES_FOR_SERIES, JOB_TYPE_BASE_SERIES_ANALYSIS
-
-# JOB_TYPE_FORECAST_SERIES = 1
-# JOB_TYPE_DETECT_ANOMALIES_FOR_SERIES = 2
-# JOB_TYPE_BASE_SERIES_ANALYSIS = 3
-
-# JOB_TYPES = [JOB_TYPE_BASE_SERIES_ANALYSIS, JOB_TYPE_FORECAST_SERIES, JOB_TYPE_DETECT_ANOMALIES_FOR_SERIES]
+from enodo.jobs import JOB_TYPE_FORECAST_SERIES, JOB_TYPE_DETECT_ANOMALIES_FOR_SERIES, JOB_TYPE_BASE_SERIES_ANALYSIS, JOB_TYPE_STATIC_RULES
 
 
 
@@ -38,20 +34,17 @@ class Analyser:
 
         if job_type == JOB_TYPE_BASE_SERIES_ANALYSIS:
             await self._analyse_series(series_name, dataset)
+        elif job_type == JOB_TYPE_STATIC_RULES:
+            parameters = job_data.get('series_config').get('model_params').get('static_rules')
+            await self._check_static_rules(series_name, dataset, parameters)
         else:
             model = job_data.get('series_config').get('job_models').get(job_type)
             parameters = job_data.get('series_config').get('model_params')
             try:
-                # if model == 'arima':
-                #     analysis = ARIMAModel(series_name, dataset, m=parameters.get('m', 12),
-                #                         d=parameters.get('d', None),
-                #                         d_large=parameters.get('D', None))
                 if model == 'prophet':
                     analysis = ProphetModel(series_name, dataset, 100)
-                # elif model == 'ar':
-                #     analysis = AutoRegressionModel(series_name, dataset)
-                # elif model == 'ma':
-                #     analysis = MovingAverageModel(series_name, dataset)
+                elif model =='ffe':
+                    analysis = FastFourierExtrapolationModel(series_name, series_data[series_name], parameters)
                 else:
                     raise Exception()
             except Exception as e:
@@ -72,7 +65,25 @@ class Analyser:
         self._analyser_queue.put(
                     {'name': series_name, 'job_type': JOB_TYPE_BASE_SERIES_ANALYSIS, 'characteristics': characteristics})
 
+    async def _check_static_rules(self, series_name, dataset, static_rules):
+        min_value = static_rules.get('min')
+        max_value = static_rules.get('max')
+        last_n_points = int(static_rules.get('last_n_points'))
 
+        rows_to_check = dataset.tail(last_n_points)
+        failed_checks = {}
+
+        if min_value is not None:
+            data_min = rows_to_check[1].min()
+            if data_min < min_value:
+                failed_checks['min'] = f"Found value lower than min value. ({data_min} < {min_value})"
+        if max_value is not None:
+            data_max = rows_to_check[1].max()
+            if data_max > max_value:
+                failed_checks['max'] = f"Found value higher than max value. ({data_max} > {max_value})"
+
+        self._analyser_queue.put(
+                {'name': series_name, 'job_type': JOB_TYPE_STATIC_RULES, 'failed_checks': failed_checks})
 
     async def _forcast_series(self, series_name, analysis_model, job_data):
         """
@@ -80,7 +91,6 @@ class Analyser:
         :param series_name:
         :return:
         """
-        print("START ANALYSE")
         error = None
         forecast_values = []
         try:
@@ -88,8 +98,9 @@ class Analyser:
             forecast_values = analysis_model.do_forecast()
         except Exception as e:
             error = str(e)
+            logging.error('Error while making and executing forcast model')
+            logging.debug(f'Correspondig error: {str(e)}')
         finally:
-            print(error)
             if error is not None:
                 self._analyser_queue.put({'name': series_name, 'job_type': JOB_TYPE_FORECAST_SERIES, 'error': error})
             else:
@@ -110,8 +121,9 @@ class Analyser:
             anomalies_timestamps = analysis_model.find_anomalies(since)
         except Exception as e:
             error = str(e)
+            logging.error('Error while making and executing anomaly detection model')
+            logging.debug(f'Correspondig error: {str(e)}')
         finally:
-            print(error)
             if error is not None:
                 self._analyser_queue.put({'name': series_name, 'job_type': JOB_TYPE_DETECT_ANOMALIES_FOR_SERIES, 'error': error})
             else:
@@ -129,16 +141,14 @@ async def _save_start_with_timeout(loop, queue, job_data,
                             siridb_port)
         await analyser.execute_job(job_data)
     except Exception as e:
-        print(e)
-        import traceback
-        traceback.print_exc()
+        logging.error('Error while executing Analyzer')
+        logging.debug(f'Correspondig error: {str(e)}')
 
 
 def start_analysing(loop, queue, job_data,
                     siridb_user, siridb_password,
                     siridb_dbname, siridb_host, siridb_port):
     """Switch to new event loop and run forever"""
-    print("ENTERING THREAD")
     asyncio.set_event_loop(loop)
     try:
         loop.run_until_complete(
@@ -148,7 +158,4 @@ def start_analysing(loop, queue, job_data,
                                      siridb_port))
         loop.stop()
     except Exception as e:
-        print(e)
-        import traceback
-        print(traceback.print_exc())
         exit()

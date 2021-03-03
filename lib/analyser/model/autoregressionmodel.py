@@ -56,12 +56,9 @@ class AutoRegressionModel(Model):
         if update or self.forecast_values is None:
             yhat = self._model.predict(len(self._dataset), len(self._dataset) + 200)
             # yhat = self._model.predict(start=1, end=5)
-            print("Sasadasdsasa")
-            print(yhat)
             indexed_forecast_values = []
             # values = yhat.to_frame()
             values = pd.DataFrame({'ds': yhat.index, 'yhat': yhat.values})
-            print(values)
             for index, row in values.iterrows():
                 indexed_forecast_values.append(
                     [int(time.mktime(

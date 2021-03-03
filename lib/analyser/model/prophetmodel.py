@@ -3,6 +3,9 @@ import time
 
 import pandas as pd
 
+import logging
+logger = logging.getLogger('fbprophet.plot')
+logger.setLevel(logging.CRITICAL)
 from fbprophet import Prophet
 from lib.analyser.model.base import Model
 
@@ -30,8 +33,7 @@ class ProphetModel(Model):
         self._dataset['ds'] = pd.to_datetime(self._dataset['ds'], unit='s')
 
         # remove outliers
-        self._dataset = self._remove_outlier(self._dataset, 'y')
-        print(self._dataset)
+        self._dataset = self._remove_outlier_in_df(self._dataset, 'y')
 
     def create_model(self):
         self._model = Prophet()
@@ -56,7 +58,6 @@ class ProphetModel(Model):
             forecast = self._model.predict(future)
             forecast.set_index('ds')
 
-            print(forecast)
             forecast['ds'] = pd.to_datetime(forecast['ds'], format="%Y-%m-%d %H:%M:%S")
             indexed_forecast_values = []
             for index, row in forecast.iterrows():
