@@ -35,11 +35,12 @@ class Analyser:
         if job_type == JOB_TYPE_BASE_SERIES_ANALYSIS:
             await self._analyse_series(series_name, dataset)
         elif job_type == JOB_TYPE_STATIC_RULES:
-            parameters = job_data.get('series_config').get('model_params').get('static_rules')
+            parameters = job_data.get('series_config').get(JOB_TYPE_BASE_SERIES_ANALYSIS).get('model_params').get('static_rules')
             await self._check_static_rules(series_name, dataset, parameters)
         else:
-            model = job_data.get('series_config').get('job_models').get(job_type)
-            parameters = job_data.get('series_config').get('model_params')
+            job_config = job_data.get('series_config').get('job_config').get(job_type)
+            model = job_config.get('model')
+            parameters = job_config.get('model_params')
             try:
                 if model == 'prophet':
                     analysis = ProphetModel(series_name, dataset, 100)
