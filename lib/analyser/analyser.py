@@ -27,6 +27,8 @@ class Analyser:
         self._analyser_queue = queue
 
     async def execute_job(self, job_data):
+        self._analyser_queue.put({'name': 'asassa', 'error': 'Job type not implemented'})
+        return
         series_name = job_data.get("series_name")
         job_type = job_data.get("job_type")
         series_data = await self._siridb_client.query_series_data(series_name)

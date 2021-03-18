@@ -7,7 +7,10 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
  
 ## [Unreleased] - yyyy-mm-dd
  
+## [0.1.0-beta2.0] - 2021-03-18
 
+### Changed
+Support new series config structure
  
 ## [0.1.0-beta2.0] - 2021-03-04
   
