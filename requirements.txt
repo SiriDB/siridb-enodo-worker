@@ -1,4 +1,5 @@
 numpy==1.18.5
+qpack==0.0.17
 siridb-connector==2.0.7
 holidays>=0.10.2
 pystan~=2.19.1.1
